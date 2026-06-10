@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Unitree Go1",
+    "type": "quadruped robot dog",
+    "scene": "vendor/mujoco_menagerie/unitree_go1/scene.xml",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/google-deepmind/mujoco_menagerie/tree/main/unitree_go1",
+    "good_for": ["locomotion", "patrol", "security", "terrain traversal"]
+  },
+  {
+    "name": "Boston Dynamics Spot",
+    "type": "quadruped robot dog",
+    "scene": "vendor/mujoco_menagerie/boston_dynamics_spot/scene.xml",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/google-deepmind/mujoco_menagerie/tree/main/boston_dynamics_spot",
+    "good_for": ["inspection", "security patrol", "mobile manipulation"]
+  },
+  {
+    "name": "Unitree G1",
+    "type": "humanoid",
+    "scene": "vendor/mujoco_menagerie/unitree_g1/scene.xml",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/google-deepmind/mujoco_menagerie/tree/main/unitree_g1",
+    "good_for": ["humanoid locomotion", "whole-body control", "service robot demos"]
+  },
+  {
+    "name": "Franka Emika Panda",
+    "type": "robot arm with gripper",
+    "scene": "vendor/mujoco_menagerie/franka_emika_panda/scene.xml",
+    "license": "Apache-2.0",
+    "source": "https://github.com/google-deepmind/mujoco_menagerie/tree/main/franka_emika_panda",
+    "good_for": ["pick and place", "data collection", "manipulation", "K12 lab demos"]
+  },
+  {
+    "name": "LEAP Hand",
+    "type": "dexterous hand",
+    "scene": "vendor/mujoco_menagerie/leap_hand/scene_right.xml",
+    "license": "MIT",
+    "source": "https://github.com/google-deepmind/mujoco_menagerie/tree/main/leap_hand",
+    "good_for": ["dexterous manipulation", "in-hand rotation", "grasping", "teleoperation"]
+  },
+  {
+    "name": "Shadow Hand",
+    "type": "dexterous hand",
+    "scene": "vendor/mujoco_menagerie/shadow_hand/scene_right.xml",
+    "license": "Apache-2.0",
+    "source": "https://github.com/google-deepmind/mujoco_menagerie/tree/main/shadow_hand",
+    "good_for": ["high-DOF hand control", "fine manipulation", "teleoperation"]
+  }
+]

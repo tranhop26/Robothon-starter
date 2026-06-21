@@ -127,6 +127,15 @@
     <position name="finger_right_act" joint="finger_right_j" kp="60" ctrlrange="0 0.045"/>
   </actuator>
 
+  <!-- Grasp weld: activated in CLOSE_GRIPPER state, deactivated on release.
+       relpose = position of cube origin in gripper_base frame when grasped.
+       Matches CARRY_OFFSET in controller.py: x=0.06 m forward, z=0.005 m up.
+       active="false" keeps it dormant until the controller enables it. -->
+  <equality>
+    <weld name="grasp_weld" body1="gripper_base" body2="cube"
+          relpose="0.06 0 0.005  1 0 0 0" active="false"/>
+  </equality>
+
   <sensor>
     <touch name="finger_left_touch"  site="finger_left_site"/>
     <touch name="finger_right_touch" site="finger_right_site"/>

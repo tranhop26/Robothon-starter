@@ -42,12 +42,6 @@ LIFT_DOWN = 0.065           # extended (reaches the floor / cube)
 GRIP_OPEN   = 0.0
 GRIP_CLOSED = 0.045
 
-# Cube offset in gripper_base LOCAL frame when being carried.
-# x=0.06: cube sits 6 cm in front of gripper_base centroid (matches
-#          the robot stopping position: finger_centre + 0.06 m → cube).
-# z=0.005: keeps cube bottom at z=0 when gripper is at floor level (z≈0.015).
-CARRY_OFFSET = np.array([0.06, 0.0, 0.005])
-
 # Waypoints to route AROUND the obstacle box at (1.25, 0.15).
 GOAL_WAYPOINTS = [
     (1.7, -0.5),
@@ -69,13 +63,6 @@ def wrap_to_pi(angle):
     return (angle + math.pi) % (2.0 * math.pi) - math.pi
 
 
-def _quat_to_mat(q):
-    """Return 3x3 rotation matrix for quaternion q = (w, x, y, z)."""
-    R = np.zeros(9)
-    mujoco.mju_quat2Mat(R, np.asarray(q, dtype=np.float64))
-    return R.reshape(3, 3)
-
-
 # ── Controller ───────────────────────────────────────────────────────────────
 class FetchController:
     def __init__(self, model, data):
@@ -89,13 +76,8 @@ class FetchController:
         self.robot_bid = model.body(ROBOT_BODY).id
         self.goal_xy   = np.array([1.6, 0.9])
 
-        # Kinematic carry: True while cube is being transported
-        self._carrying   = False
-        self._cube_jid   = model.joint("cube_free").id
-        self._cube_qpadr = model.jnt_qposadr[self._cube_jid]
-        self._cube_dpadr = model.jnt_dofadr[self._cube_jid]
-
-        self._grip_bid = model.body("gripper_base").id
+        # Weld constraint: toggled on/off to hold cube to gripper_base
+        self.weld_id = model.equality("grasp_weld").id
 
     # ── helpers ──────────────────────────────────────────────────────────────
     def robot_xy(self):
@@ -107,26 +89,6 @@ class FetchController:
     def cube_xy(self):
         return self.data.xpos[self.cube_bid][:2].copy()
 
-    def _carry_cube(self):
-        """Override cube freejoint so the cube rigidly follows the gripper.
-
-        Called every step while self._carrying is True.  The override is set
-        in data.qpos / data.qvel AFTER mj_step, so the next step's integration
-        uses the corrected position as its starting state.
-        """
-        grip_pos  = self.data.xpos[self._grip_bid].copy()
-        grip_quat = self.data.xquat[self._grip_bid].copy()
-
-        # Rotate carry offset from gripper local frame to world frame
-        R = _quat_to_mat(grip_quat)
-        target_pos = grip_pos + R @ CARRY_OFFSET
-
-        # Update cube freejoint position and orientation
-        self.data.qpos[self._cube_qpadr    : self._cube_qpadr + 3] = target_pos
-        self.data.qpos[self._cube_qpadr + 3: self._cube_qpadr + 7] = grip_quat
-
-        # Zero velocity so the next integration starts from rest (avoids drift)
-        self.data.qvel[self._cube_dpadr: self._cube_dpadr + 6] = 0.0
 
     def drive_toward(self, target_xy, dock_offset=0.0, slow=False):
         """Commands world-frame velocity to steer toward target_xy.
@@ -178,10 +140,6 @@ class FetchController:
     def step(self):
         s = self.state
 
-        # Kinematic carry: override cube position every step while transporting
-        if self._carrying:
-            self._carry_cube()
-
         if s == "DRIVE_TO_CUBE":
             self.set_lift(LIFT_UP)
             self.set_grip(GRIP_OPEN)
@@ -203,8 +161,8 @@ class FetchController:
             self.set_grip(GRIP_CLOSED)
             self.timer += 1
             if self.timer > 250:
-                # Activate kinematic carry so cube tracks gripper from here on
-                self._carrying = True
+                # Activate weld constraint: cube is now held by physics solver
+                self.data.eq_active[self.weld_id] = 1
                 self.state, self.timer = "LIFT_ARM", 0
 
         elif s == "LIFT_ARM":
@@ -230,8 +188,8 @@ class FetchController:
             self.set_lift(LIFT_DOWN)
             self.timer += 1
             if self.timer > 150:
-                # Release: stop kinematic override, open fingers
-                self._carrying = False
+                # Deactivate weld: cube released, open fingers
+                self.data.eq_active[self.weld_id] = 0
                 self.set_grip(GRIP_OPEN)
             if self.timer > 300:
                 self.set_lift(LIFT_UP)

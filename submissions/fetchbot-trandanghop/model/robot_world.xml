@@ -1,0 +1,138 @@
+<mujoco model="robothon_fetchbot">
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+  </visual>
+  <!-- FFAI Robothon 2026 submission scene.
+       Locomotion: nested slide+hinge joints (base_x, base_y, base_rz) give reliable
+       kinematic planar control without the freejoint contact-physics instability.
+       The robot z-position is fixed at 0.07 m by the joint chain (no z DOF exists),
+       so gravity is absorbed by joint constraints — no floor contact needed for support.
+       Only the gripper fingers and palm contact the floor/cube for manipulation. -->
+
+  <compiler angle="radian"/>
+  <option timestep="0.005" gravity="0 0 -9.81" integrator="implicitfast"/>
+
+  <default>
+    <geom contype="1" conaffinity="1" friction="1 0.5 0.5" rgba="0.7 0.7 0.7 1"/>
+    <joint damping="0.2"/>
+  </default>
+
+  <asset>
+    <texture type="2d" name="grid" builtin="checker" rgb1="0.18 0.22 0.28" rgb2="0.28 0.32 0.38"
+              width="300" height="300"/>
+    <material name="grid_mat" texture="grid" texrepeat="6 6" reflectance="0.1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1" diffuse="1 1 1"/>
+    <camera name="demo_cam" pos="0.2 -3.2 2.6" xyaxes="1 0 0 0 0.65 0.76"/>
+
+    <geom name="floor" type="plane" size="3 3 0.1" material="grid_mat"/>
+
+    <!-- Static obstacle -->
+    <geom name="obstacle" type="box" pos="1.25 0.15 0.15" size="0.1 0.3 0.15" rgba="0.8 0.2 0.2 1"/>
+
+    <!-- Goal pad (visual only) -->
+    <geom name="goal_marker" type="cylinder" pos="1.6 0.9 0.005" size="0.18 0.005"
+          rgba="0.15 0.85 0.25 0.5" contype="0" conaffinity="0"/>
+
+    <!-- Graspable cube -->
+    <body name="cube" pos="0.9 -0.6 0.02">
+      <freejoint name="cube_free"/>
+      <geom name="cube_geom" type="box" size="0.02 0.02 0.02" rgba="0.9 0.6 0.1 1"
+            friction="1.2 0.6 0.6" mass="0.03"/>
+    </body>
+
+    <!-- ================================================================
+         Mobile base: two nested slide joints (world x, world y) plus a
+         hinge for yaw.  Each sled body has a tiny inertial element so
+         MuJoCo's mass sanity check is satisfied.  Because no z-joint
+         exists in this chain, the robot is locked at z=0.07 by constraint;
+         gravity is absorbed automatically without needing floor contact.
+         ================================================================ -->
+    <body name="robot_sled_x" pos="-1.2 -0.6 0.07">
+      <inertial pos="0 0 0" mass="0.001" diaginertia="1e-6 1e-6 1e-6"/>
+      <joint name="base_x" type="slide" axis="1 0 0" damping="1"/>
+
+      <body name="robot_sled_y">
+        <inertial pos="0 0 0" mass="0.001" diaginertia="1e-6 1e-6 1e-6"/>
+        <joint name="base_y" type="slide" axis="0 1 0" damping="1"/>
+
+        <body name="robot_base">
+          <joint name="base_rz" type="hinge" axis="0 0 1" damping="2"/>
+
+          <!-- chassis: non-colliding (z locked, floor contact not needed) -->
+          <geom name="chassis" type="box" size="0.18 0.12 0.05" rgba="0.2 0.3 0.8 1"
+                mass="1.0" contype="0" conaffinity="0"/>
+          <site name="front_site" pos="0.18 0 0" size="0.005" rgba="1 0 0 1"/>
+
+          <!-- Wheels: non-colliding, kept for visual fidelity -->
+          <body name="wheel_left" pos="0 0.15 -0.02">
+            <joint name="wheel_left_j" type="hinge" axis="0 1 0" damping="0.05"/>
+            <geom name="wheel_left_geom" type="cylinder" size="0.05 0.02" euler="1.5708 0 0"
+                  rgba="0.1 0.1 0.1 1" mass="0.15" contype="0" conaffinity="0"/>
+          </body>
+
+          <body name="wheel_right" pos="0 -0.15 -0.02">
+            <joint name="wheel_right_j" type="hinge" axis="0 1 0" damping="0.05"/>
+            <geom name="wheel_right_geom" type="cylinder" size="0.05 0.02" euler="1.5708 0 0"
+                  rgba="0.1 0.1 0.1 1" mass="0.15" contype="0" conaffinity="0"/>
+          </body>
+
+          <!-- Lift: extends DOWNWARD; lift_geom non-colliding to allow full extension -->
+          <body name="lift" pos="0.05 0 0.06">
+            <joint name="lift_j" type="slide" axis="0 0 -1" range="0 0.09" damping="1"/>
+            <geom name="lift_geom" type="box" size="0.02 0.02 0.05" pos="0 0 -0.03"
+                  rgba="0.5 0.5 0.5 1" mass="0.2" contype="0" conaffinity="0"/>
+
+            <body name="gripper_base" pos="0 0 -0.08">
+              <!-- palm collides with floor to stop over-extension and position fingers -->
+              <geom name="gripper_palm" type="box" size="0.03 0.06 0.015"
+                    rgba="0.4 0.4 0.4 1" mass="0.1"/>
+
+              <body name="finger_left" pos="0 0.05 0">
+                <joint name="finger_left_j" type="slide" axis="0 -1 0" range="0 0.045" damping="1"/>
+                <geom name="finger_left_geom" type="box" size="0.01 0.015 0.03"
+                      rgba="0.9 0.9 0.2 1" friction="1.5 0.8 0.1" mass="0.03"/>
+                <site name="finger_left_site" pos="0 0 -0.025" size="0.008"/>
+              </body>
+
+              <body name="finger_right" pos="0 -0.05 0">
+                <joint name="finger_right_j" type="slide" axis="0 1 0" range="0 0.045" damping="1"/>
+                <geom name="finger_right_geom" type="box" size="0.01 0.015 0.03"
+                      rgba="0.9 0.9 0.2 1" friction="1.5 0.8 0.1" mass="0.03"/>
+                <site name="finger_right_site" pos="0 0 -0.025" size="0.008"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Kinematic planar locomotion: world-frame x, world-frame y, body-frame yaw.
+         High kv on x/y gives near-instant velocity tracking. -->
+    <velocity name="base_x_act"  joint="base_x"  kv="120" ctrlrange="-2 2"/>
+    <velocity name="base_y_act"  joint="base_y"  kv="120" ctrlrange="-2 2"/>
+    <velocity name="base_rz_act" joint="base_rz" kv="5"   ctrlrange="-8 8"/>
+
+    <!-- Wheel spin (visual only, low kv so it does not fight locomotion) -->
+    <velocity name="wheel_left_act"  joint="wheel_left_j"  kv="0.3" ctrlrange="-20 20"/>
+    <velocity name="wheel_right_act" joint="wheel_right_j" kv="0.3" ctrlrange="-20 20"/>
+
+    <!-- Manipulation -->
+    <position name="lift_act"         joint="lift_j"         kp="80" ctrlrange="0 0.09"/>
+    <position name="finger_left_act"  joint="finger_left_j"  kp="60" ctrlrange="0 0.045"/>
+    <position name="finger_right_act" joint="finger_right_j" kp="60" ctrlrange="0 0.045"/>
+  </actuator>
+
+  <sensor>
+    <touch name="finger_left_touch"  site="finger_left_site"/>
+    <touch name="finger_right_touch" site="finger_right_site"/>
+    <rangefinder name="front_range" site="front_site"/>
+    <framepos  name="base_pos"  objtype="body" objname="robot_base"/>
+    <framequat name="base_quat" objtype="body" objname="robot_base"/>
+    <jointpos  name="lift_pos_sensor" joint="lift_j"/>
+  </sensor>
+</mujoco>
